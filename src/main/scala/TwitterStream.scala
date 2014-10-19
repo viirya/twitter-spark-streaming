@@ -10,6 +10,17 @@ import org.apache.spark.Logging
 
 import org.apache.log4j.{Level, Logger}
 
+import scala.io.Codec
+
+import org.json4s._
+import org.json4s.jackson.JsonMethods._
+
+import com.redis._
+import akka.actor.{ ActorSystem, Props }
+
+import com.github.pmerienne.trident.ml.nlp.TwitterSentimentClassifier
+
+
 object TwitterStream {
   def main(args: Array[String]) {
     if (args.length < 4) {
