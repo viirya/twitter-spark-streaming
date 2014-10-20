@@ -45,17 +45,34 @@ object TwitterStream {
     val ssc = new StreamingContext(sparkConf, Seconds(2))
     val stream = TwitterUtils.createStream(ssc, None, filters)
 
-    val hashTags = stream.flatMap(status => status.getText.split(" ").filter(_.startsWith("#")))
+    val tweets = stream.map(status => {
+      val text = status.getText
+      val geo = status.getGeoLocation
+      if (geo != null) {
+        Some((geo.getLatitude, geo.getLongitude, text))
+      } else {
+        None
+      }
+    })
 
-    val topCounts60 = hashTags.map((_, 1)).reduceByKeyAndWindow(_ + _, Seconds(60))
-                     .map{case (topic, count) => (count, topic)}
-                     .transform(_.sortByKey(false))
+    val geoGrouped = tweets.map({
+      case Some(tweet) =>
+        val lat = tweet._1
+        val lng = tweet._2
+        val text = tweet._3
+        (math.floor(lat * 10000).toString + math.floor(lng * 10000).toString, Some((lat, lng, text)))
+      case None =>
+        ("", None)        
+    }).reduceByKeyAndWindow((first, second) => {
+      first
+    }, Seconds(60))
 
-    // Print popular hashtags
-    topCounts60.foreachRDD(rdd => {
-      val topList = rdd.take(10)
-      println("\nPopular topics in last 60 seconds (%s total):".format(rdd.count()))
-      topList.foreach{case (count, tag) => println("%s (%s tweets)".format(tag, count))}
+    geoGrouped.foreachRDD(rdd => {
+      println("\nTweets in last 60 seconds (%s total):".format(rdd.count()))
+      rdd.foreach{
+        case (geoKey, Some(content)) => println("geoKey: %s lat:%f lng:%f".format(geoKey, content._1, content._2))
+        case (geoKey, None) =>
+      }
     })
 
     ssc.start()
