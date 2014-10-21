@@ -68,7 +68,7 @@ object TwitterStream {
     }, Seconds(60))
 
 
-    val classifier = new TweetClassifier(new Pub(redisAddr), modelPath, fmapPath, lmapPath, featurePath, classifierPath)
+    val classifier = new TweetClassifier(new Pub().init(redisAddr), modelPath, fmapPath, lmapPath, featurePath, classifierPath)
 
     geoGrouped.foreachRDD(rdd => {
       println("\nTweets in last 60 seconds (%s total):".format(rdd.count()))
@@ -85,14 +85,19 @@ object TwitterStream {
   }
 }
  
-class Pub(val address: String) extends Serializable {
+class Pub extends Serializable {
 
-  def this() = this("")
-
-  val r = new Jedis(address, 6379)
+  var r: Jedis = null
+  
+  def init(address: String) = {
+    r = new Jedis(address, 6379) with Serializable
+    this
+  }
 
   def publish(channel: String, message: String) = {
-    r.publish(channel, message)
+    if (r != null) {
+      r.publish(channel, message)
+    }
   }
 }
 
