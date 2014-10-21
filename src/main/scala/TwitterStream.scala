@@ -68,11 +68,13 @@ object TwitterStream {
     }, Seconds(60))
 
 
-    val classifier = new TweetClassifier(new Pub(), modelPath, fmapPath, lmapPath, featurePath, classifierPath)
+    val classifier = new TweetClassifier(modelPath, fmapPath, lmapPath, featurePath, classifierPath)
 
     geoGrouped.foreachRDD(rdd => {
+      val publisher = new Pub().init(redisAddr)
+
       println("\nTweets in last 60 seconds (%s total):".format(rdd.count()))
-      classifier.publisher.init(redisAddr)
+      classifier.setup_publisher(publisher)
       rdd.foreach{
         case (geoKey, Some(content)) =>
           println("geoKey: %s lat:%f lng:%f".format(geoKey, content._1, content._2))
@@ -102,7 +104,7 @@ class Pub extends Serializable {
   }
 }
 
-class TweetClassifier(val publisher: Pub, val modelPath: String, val fmapPath: String, val lmapPath: String, val featurePath: String, val classifierPath: String) extends Serializable {
+class TweetClassifier(val modelPath: String, val fmapPath: String, val lmapPath: String, val featurePath: String, val classifierPath: String) extends Serializable {
 
   import nak.NakContext._
   import nak.core._
@@ -124,6 +126,8 @@ class TweetClassifier(val publisher: Pub, val modelPath: String, val fmapPath: S
 
   var tweet_classifier: TwitterSentimentClassifier = _
 
+  var publisher: Pub = null
+
   average_lat = new HashMap[String, List[Double]]().withDefaultValue(List())
   average_lng = new HashMap[String, List[Double]]().withDefaultValue(List())
   insert_time = new HashMap[String, List[Long]]().withDefaultValue(List())
@@ -143,6 +147,10 @@ class TweetClassifier(val publisher: Pub, val modelPath: String, val fmapPath: S
 
     tweet_classifier = new TwitterSentimentClassifier(featurePath, classifierPath)
 
+  }
+
+  def setup_publisher(pub: Pub) = {
+    publisher = pub
   }
 
   def predict_tweets(tweets: String) = {
