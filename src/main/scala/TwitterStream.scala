@@ -68,10 +68,11 @@ object TwitterStream {
     }, Seconds(60))
 
 
-    val classifier = new TweetClassifier(new Pub().init(redisAddr), modelPath, fmapPath, lmapPath, featurePath, classifierPath)
+    val classifier = new TweetClassifier(new Pub(), modelPath, fmapPath, lmapPath, featurePath, classifierPath)
 
     geoGrouped.foreachRDD(rdd => {
       println("\nTweets in last 60 seconds (%s total):".format(rdd.count()))
+      classifier.publisher.init(redisAddr)
       rdd.foreach{
         case (geoKey, Some(content)) =>
           println("geoKey: %s lat:%f lng:%f".format(geoKey, content._1, content._2))
