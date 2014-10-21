@@ -6,6 +6,8 @@ version := "1.0"
 
 scalaVersion := "2.10.4"
 
+compileOrder := CompileOrder.JavaThenScala
+
 resolvers ++= Seq("clojars" at "http://clojars.org/repo/",
                   "clojure-releases" at "http://build.clojure.org/releases")
  
@@ -20,6 +22,13 @@ libraryDependencies += "org.apache.spark" %% "spark-streaming-twitter" % "1.1.0"
 libraryDependencies += "org.json4s" %% "json4s-jackson" % "3.2.10"
 
 libraryDependencies += "net.debasishg" %% "redisclient" % "2.13"
+
+libraryDependencies +=  "net.debasishg" %% "sjson" % "0.19"
+
+libraryDependencies += "org.jblas" % "jblas" % "1.2.3"
+
+libraryDependencies += "org.apache.lucene" % "lucene-analyzers" % "3.6.2"
+
 
 assemblySettings
 
