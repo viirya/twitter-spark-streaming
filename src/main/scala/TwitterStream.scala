@@ -69,10 +69,11 @@ object TwitterStream {
     }, Seconds(60))
 
 
-    val classifier = new TweetClassifier(new Pub(redisAddr), modelPath, fmapPath, lmapPath, featurePath, classifierPath)
+    val classifier = new TweetClassifier(modelPath, fmapPath, lmapPath, featurePath, classifierPath)
 
     geoGrouped.foreachRDD(rdd => {
       println("\nTweets in last 60 seconds (%s total):".format(rdd.count()))
+      classifier.setup_publisher(new Pub(redisAddr))
       rdd.foreach{
         case (geoKey, Some(content)) =>
           println("geoKey: %s lat:%f lng:%f".format(geoKey, content._1, content._2))
@@ -86,17 +87,15 @@ object TwitterStream {
   }
 }
  
-class Pub(val address: String) {
-  val system = ActorSystem("pub")
-  val r = new RedisClient(address, 6379)
-  val p = system.actorOf(Props(new Publisher(r)))
+class Pub(val address: String) extends Serializable {
+  val r = new RedisClient(address, 6379) with Serializable
 
   def publish(channel: String, message: String) = {
-    p ! Publish(channel, message)
+    r.publish(channel, message)
   }
 }
 
-class TweetClassifier(val publisher: Pub, val modelPath: String, val fmapPath: String, val lmapPath: String, val featurePath: String, val classifierPath: String) extends Serializable {
+class TweetClassifier(val modelPath: String, val fmapPath: String, val lmapPath: String, val featurePath: String, val classifierPath: String) extends Serializable {
 
   import nak.NakContext._
   import nak.core._
@@ -118,6 +117,8 @@ class TweetClassifier(val publisher: Pub, val modelPath: String, val fmapPath: S
 
   var tweet_classifier: TwitterSentimentClassifier = _
 
+  var publisher: Pub = null
+
  
   average_lat = new HashMap[String, List[Double]]().withDefaultValue(List())
   average_lng = new HashMap[String, List[Double]]().withDefaultValue(List())
@@ -138,6 +139,10 @@ class TweetClassifier(val publisher: Pub, val modelPath: String, val fmapPath: S
 
     tweet_classifier = new TwitterSentimentClassifier(featurePath, classifierPath)
 
+  }
+
+  def setup_publisher(pub: Pub) = {
+    publisher = pub
   }
 
   def predict_tweets(tweets: String) = {
@@ -174,7 +179,9 @@ class TweetClassifier(val publisher: Pub, val modelPath: String, val fmapPath: S
       var sentiment_label = predict_tweets_sentiment(concated_txt)
 
       if (all_lat != 0.0 || all_lng != 0.0 || average_lat(elem_key).length == 0) {
-        publisher.publish("tweets", elem_key + ":" + all_lat.toString() + ":" + all_lng.toString() + ":" + average_lat(elem_key).length + "\t" + concated_txt + "\t" + predict_label + "\t" + sentiment_label)
+        if (publisher != null) {
+          publisher.publish("tweets", elem_key + ":" + all_lat.toString() + ":" + all_lng.toString() + ":" + average_lat(elem_key).length + "\t" + concated_txt + "\t" + predict_label + "\t" + sentiment_label)
+        }
       }
 
       if (average_lat(elem_key).length == 0) {
@@ -236,7 +243,9 @@ class TweetClassifier(val publisher: Pub, val modelPath: String, val fmapPath: S
 
       group_publish(geoKey)
 
-      publisher.publish("ori_tweets", lat.toString() + ":" + lng.toString())
+      if (publisher != null) {
+        publisher.publish("ori_tweets", lat.toString() + ":" + lng.toString())
+      }
   }
 }
  
