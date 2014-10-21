@@ -15,8 +15,7 @@ import org.apache.log4j.{Level, Logger}
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 
-import com.redis._
-import akka.actor.{ ActorSystem, Props }
+import redis.clients.jedis.Jedis;
 
 import org.viirya.data.ml.nlp.TwitterSentimentClassifier
 
@@ -69,11 +68,10 @@ object TwitterStream {
     }, Seconds(60))
 
 
-    val classifier = new TweetClassifier(modelPath, fmapPath, lmapPath, featurePath, classifierPath)
+    val classifier = new TweetClassifier(new Pub(redisAddr), modelPath, fmapPath, lmapPath, featurePath, classifierPath)
 
     geoGrouped.foreachRDD(rdd => {
       println("\nTweets in last 60 seconds (%s total):".format(rdd.count()))
-      classifier.setup_publisher(new Pub(redisAddr))
       rdd.foreach{
         case (geoKey, Some(content)) =>
           println("geoKey: %s lat:%f lng:%f".format(geoKey, content._1, content._2))
@@ -88,14 +86,17 @@ object TwitterStream {
 }
  
 class Pub(val address: String) extends Serializable {
-  val r = new RedisClient(address, 6379) with Serializable
+
+  def this() = this("")
+
+  val r = new Jedis(address, 6379)
 
   def publish(channel: String, message: String) = {
     r.publish(channel, message)
   }
 }
 
-class TweetClassifier(val modelPath: String, val fmapPath: String, val lmapPath: String, val featurePath: String, val classifierPath: String) extends Serializable {
+class TweetClassifier(val publisher: Pub, val modelPath: String, val fmapPath: String, val lmapPath: String, val featurePath: String, val classifierPath: String) extends Serializable {
 
   import nak.NakContext._
   import nak.core._
@@ -117,9 +118,6 @@ class TweetClassifier(val modelPath: String, val fmapPath: String, val lmapPath:
 
   var tweet_classifier: TwitterSentimentClassifier = _
 
-  var publisher: Pub = null
-
- 
   average_lat = new HashMap[String, List[Double]]().withDefaultValue(List())
   average_lng = new HashMap[String, List[Double]]().withDefaultValue(List())
   insert_time = new HashMap[String, List[Long]]().withDefaultValue(List())
@@ -139,10 +137,6 @@ class TweetClassifier(val modelPath: String, val fmapPath: String, val lmapPath:
 
     tweet_classifier = new TwitterSentimentClassifier(featurePath, classifierPath)
 
-  }
-
-  def setup_publisher(pub: Pub) = {
-    publisher = pub
   }
 
   def predict_tweets(tweets: String) = {

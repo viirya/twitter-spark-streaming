@@ -29,6 +29,7 @@ libraryDependencies += "org.jblas" % "jblas" % "1.2.3"
 
 libraryDependencies += "org.apache.lucene" % "lucene-analyzers" % "3.6.2"
 
+libraryDependencies += "redis.clients" % "jedis" % "2.6.0"
 
 assemblySettings
 
