@@ -71,13 +71,14 @@ object TwitterStream {
     val classifier = new TweetClassifier(modelPath, fmapPath, lmapPath, featurePath, classifierPath)
 
     geoGrouped.foreachRDD(rdd => {
-      val publisher = new Pub().init(redisAddr)
-
       println("\nTweets in last 60 seconds (%s total):".format(rdd.count()))
-      classifier.setup_publisher(publisher)
       rdd.foreach{
         case (geoKey, Some(content)) =>
           println("geoKey: %s lat:%f lng:%f".format(geoKey, content._1, content._2))
+
+          val publisher = new Pub().init(redisAddr)
+          classifier.setup_publisher(publisher)
+ 
           classifier.process(geoKey, content._1, content._2, content._3)
         case (geoKey, None) =>
       }
@@ -89,11 +90,11 @@ object TwitterStream {
 }
  
 class Pub extends Serializable {
-
+         
   var r: Jedis = null
   
   def init(address: String) = {
-    r = new Jedis(address, 6379) with Serializable
+    r = new Jedis(address, 6379)
     this
   }
 
