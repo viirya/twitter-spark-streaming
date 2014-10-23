@@ -60,7 +60,7 @@ object TwitterStream {
         val lat = tweet._1
         val lng = tweet._2
         val text = tweet._3
-        (math.floor(lat * 10000).toString + math.floor(lng * 10000).toString, Some((lat, lng, text)))
+        (math.floor(lat * 10000).toString + ":" + math.floor(lng * 10000).toString, Some((lat, lng, text)))
       case None =>
         ("", None)        
     }).reduceByKeyAndWindow((first, second) => {
