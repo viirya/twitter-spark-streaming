@@ -78,7 +78,8 @@ object TwitterStream {
 
           val publisher = new Pub().init(redisAddr)
           classifier.setup_publisher(publisher)
- 
+
+          classifier.deQueue() 
           classifier.process(geoKey, content._1, content._2, content._3)
         case (geoKey, None) =>
       }
