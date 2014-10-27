@@ -42,7 +42,7 @@ object TwitterStream {
     System.setProperty("twitter4j.oauth.accessTokenSecret", accessTokenSecret)
 
     val sparkConf = new SparkConf().setAppName("TwitterStream")
-    val ssc = new StreamingContext(sparkConf, Seconds(2))
+    val ssc = new StreamingContext(sparkConf, Seconds(1))
     val stream = TwitterUtils.createStream(ssc, None, filters)
 
     val tweets = stream.map(status => {
@@ -60,12 +60,15 @@ object TwitterStream {
         val lat = tweet._1
         val lng = tweet._2
         val text = tweet._3
-        (math.floor(lat * 10000).toString + ":" + math.floor(lng * 10000).toString, Some((lat, lng, text)))
+        (math.floor(lat * 10000).toString + ":" + math.floor(lng * 10000).toString, Some(List((lat, lng, text))))
       case None =>
         ("", None)        
-    }).reduceByKeyAndWindow((first, second) => {
-      first
-    }, Seconds(60))
+    }).reduceByKeyAndWindow({
+      case (Some(firstTupleList), Some(secondTupleList)) =>
+        Some(firstTupleList ++ secondTupleList)
+      case (None, None) =>
+        None
+    }, Seconds(120))
 
 
     val classifier = new TweetClassifier(modelPath, fmapPath, lmapPath, featurePath, classifierPath)
@@ -73,14 +76,16 @@ object TwitterStream {
     geoGrouped.foreachRDD(rdd => {
       println("\nTweets in last 60 seconds (%s total):".format(rdd.count()))
       rdd.foreach{
-        case (geoKey, Some(content)) =>
-          println("geoKey: %s lat:%f lng:%f".format(geoKey, content._1, content._2))
+        case (geoKey, Some(contentList)) =>
+          contentList.foreach((content) => {
+            println("geoKey: %s lat:%f lng:%f".format(geoKey, content._1, content._2))
 
-          val publisher = new Pub().init(redisAddr)
-          classifier.setup_publisher(publisher)
+            val publisher = new Pub().init(redisAddr)
+            classifier.setup_publisher(publisher)
 
-          classifier.deQueue() 
-          classifier.process(geoKey, content._1, content._2, content._3)
+            classifier.deQueue() 
+            classifier.process(geoKey, content._1, content._2, content._3)
+          })
         case (geoKey, None) =>
       }
     })

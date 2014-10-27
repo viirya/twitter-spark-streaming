@@ -17,7 +17,8 @@ libraryDependencies += "org.apache.spark" %% "spark-core" % "1.1.0"
 
 libraryDependencies += "org.apache.spark" %% "spark-streaming" % "1.1.0"
 
-libraryDependencies += "org.apache.spark" %% "spark-streaming-twitter" % "1.1.0"
+// use custom spark-streaming-twitter library that requires tweets with geo-tagged
+//libraryDependencies += "org.apache.spark" %% "spark-streaming-twitter" % "1.1.0"
 
 libraryDependencies += "org.json4s" %% "json4s-jackson" % "3.2.10"
 
