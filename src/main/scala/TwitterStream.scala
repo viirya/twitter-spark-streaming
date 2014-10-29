@@ -63,18 +63,21 @@ object TwitterStream {
         (math.floor(lat * 10000).toString + ":" + math.floor(lng * 10000).toString, Some(List((lat, lng, text))))
       case None =>
         ("", None)        
-    }).reduceByKeyAndWindow({
-      case (Some(firstTupleList), Some(secondTupleList)) =>
-        Some(firstTupleList ++ secondTupleList)
-      case (None, None) =>
-        None
-    }, Seconds(120))
+    }).reduceByKeyAndWindow((first: Option[List[(Double, Double, String)]], second: Option[List[(Double, Double, String)]]) => {
+      (first, second) match {
+        case (Some(firstTupleList), Some(secondTupleList)) =>
+          Some(firstTupleList ++ secondTupleList)
+        case (None, None) =>
+          None
+       }
+    }, Seconds(1), Seconds(10))
 
 
     val classifier = new TweetClassifier(modelPath, fmapPath, lmapPath, featurePath, classifierPath)
 
     geoGrouped.foreachRDD(rdd => {
       println("\nTweets in last 60 seconds (%s total):".format(rdd.count()))
+      println(s"\nSize: ${classifier.size()}")
       rdd.foreach{
         case (geoKey, Some(contentList)) =>
           contentList.foreach((content) => {
@@ -83,7 +86,7 @@ object TwitterStream {
             val publisher = new Pub().init(redisAddr)
             classifier.setup_publisher(publisher)
 
-            classifier.deQueue() 
+            classifier.deQueue()
             classifier.process(geoKey, content._1, content._2, content._3)
           })
         case (geoKey, None) =>
@@ -141,6 +144,10 @@ class TweetClassifier(val modelPath: String, val fmapPath: String, val lmapPath:
   grp_tweets = new HashMap[String, List[String]]().withDefaultValue(List())
 
   setup_classifier()
+
+  def size() = {
+    average_lng.size
+  }
 
   def setup_classifier() = {
  
@@ -218,7 +225,7 @@ class TweetClassifier(val modelPath: String, val fmapPath: String, val lmapPath:
         (current_time - insert_time(elem._1)(count - 1)) / 1000 > 5
       })
     })
-    
+
     average_lng.foreach((elem) => {
       var count = 0
       average_lng(elem._1) = elem._2.filterNot((tweet) => {
@@ -226,7 +233,7 @@ class TweetClassifier(val modelPath: String, val fmapPath: String, val lmapPath:
         (current_time - insert_time(elem._1)(count - 1)) / 1000 > 5
       })
     })
-    
+
     grp_tweets.foreach((elem) => {
       var count = 0
       grp_tweets(elem._1) = elem._2.filterNot((tweet) => {
@@ -234,13 +241,13 @@ class TweetClassifier(val modelPath: String, val fmapPath: String, val lmapPath:
         (current_time - insert_time(elem._1)(count - 1)) / 1000 > 5
       })
     })
-    
+
     insert_time.foreach((elem) => {
       insert_time(elem._1) = elem._2.filterNot((record_time) => {
         (current_time - record_time) / 1000 > 5
       })
-    }) 
-    
+    })
+
     average_lat.foreach((elem) => {
       if (elem._2.length == 0) {
         group_publish(elem._1)
