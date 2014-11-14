@@ -33,6 +33,7 @@ object TwitterStream {
 
     val Array(redisAddr, modelPath, fmapPath, lmapPath, featurePath, classifierPath, consumerKey, consumerSecret, accessToken, accessTokenSecret) = args.take(10)
     val filters = args.takeRight(args.length - 10)
+    val locations: Seq[Seq[Double]] = Seq(Seq(-180, -90), Seq(180, 90))
 
     // Set the system properties so that Twitter4j library used by twitter stream
     // can use them to generat OAuth credentials
@@ -43,7 +44,7 @@ object TwitterStream {
 
     val sparkConf = new SparkConf().setAppName("TwitterStream")
     val ssc = new StreamingContext(sparkConf, Seconds(1))
-    val stream = TwitterUtils.createStream(ssc, None, filters)
+    val stream = TwitterUtils.createStream(ssc, None, filters, locations)
 
     val tweets = stream.map(status => {
       val text = status.getText
