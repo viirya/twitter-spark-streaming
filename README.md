@@ -21,4 +21,6 @@ The tweets stream is also classified using using the well-known 20 news groups d
 
 Because the user given functions performed on RDDs in Spark would be serialized and deserialized to run on worker nodes, the classes and objects from third-party libraries should be serializable. This application sends geo-grouped tweets and tweet classification results to clients by Redis Pub/Sub mechanism. Due to the serialization issue, we choose the Redis library and modify its codes to let it implements Serializable interface.
 
+The Redis library is tested with Redis 2.8.17.
+
 
