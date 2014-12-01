@@ -71,24 +71,24 @@ object TwitterStream {
         case (None, None) =>
           None
        }
-    }, Seconds(1), Seconds(10))
+    }, Seconds(5), Seconds(2))
 
 
     val classifier = new TweetClassifier(modelPath, fmapPath, lmapPath, featurePath, classifierPath)
+    val broadcastedClassifier = ssc.sparkContext.broadcast(classifier)
 
     geoGrouped.foreachRDD(rdd => {
       println("\nTweets in last 60 seconds (%s total):".format(rdd.count()))
-      println(s"\nSize: ${classifier.size()}")
       rdd.foreach{
         case (geoKey, Some(contentList)) =>
           contentList.foreach((content) => {
             println("geoKey: %s lat:%f lng:%f".format(geoKey, content._1, content._2))
 
             val publisher = new Pub().init(redisAddr)
-            classifier.setup_publisher(publisher)
+            broadcastedClassifier.value.setup_publisher(publisher)
 
-            classifier.deQueue()
-            classifier.process(geoKey, content._1, content._2, content._3)
+            broadcastedClassifier.value.deQueue()
+            broadcastedClassifier.value.process(geoKey, content._1, content._2, content._3)
           })
         case (geoKey, None) =>
       }
